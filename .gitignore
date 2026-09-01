@@ -1,0 +1,16 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.coverprofile
+profile.cov
+go.work
+go.work.sum
+vendor/
+.env
+*.env.local
+.idea/
+.vscode/
