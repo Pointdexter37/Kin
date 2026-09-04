@@ -4,6 +4,7 @@ import (
     "fmt"
 
     "github.com/spf13/cobra"
+    "github.com/Pointdexter37/kin/internal/snippet"
 )
 
 var addCmd = &cobra.Command{
@@ -12,7 +13,10 @@ var addCmd = &cobra.Command{
     Args:  cobra.ExactArgs(1),
 
     Run: func(cmd *cobra.Command, args []string) {
-        fmt.Println("Add snippet:", args[0])
+    	newSnippet := snippet.Add(args[0])
+
+    
+        fmt.Println("Added:", newSnippet.Command)
     },
 }
 
