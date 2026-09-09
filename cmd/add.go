@@ -1,25 +1,28 @@
 package cmd
 
 import (
-    "fmt"
+	"fmt"
 
-    "github.com/spf13/cobra"
-    "github.com/Pointdexter37/kin/internal/snippet"
+	"github.com/Pointdexter37/kin/internal/snippet"
+	"github.com/spf13/cobra"
 )
 
 var addCmd = &cobra.Command{
-    Use:   "add",
-    Short: "Add a new snippet",
-    Args:  cobra.ExactArgs(1),
+	Use:   "add",
+	Short: "Add a new snippet",
+	Args:  cobra.ExactArgs(1),
 
-    Run: func(cmd *cobra.Command, args []string) {
-    	newSnippet := snippet.Add(args[0])
+	RunE: func(cmd *cobra.Command, args []string) error {
+		newSnippet, err := snippet.Add(args[0])
+		if err != nil {
+			return err
+		}
 
-    
-        fmt.Println("Added:", newSnippet.Command)
-    },
+		fmt.Printf("Added %d: %s\n", newSnippet.ID, newSnippet.Command)
+		return nil
+	},
 }
 
 func init() {
-    rootCmd.AddCommand(addCmd)
+	rootCmd.AddCommand(addCmd)
 }

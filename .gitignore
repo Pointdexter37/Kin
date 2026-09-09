@@ -14,3 +14,5 @@ vendor/
 *.env.local
 .idea/
 .vscode/
+context(1).md
+kin.db

@@ -8,20 +8,24 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use: "list",
+	Use:   "list",
 	Short: "List saved snippets",
-	Run: func(cmd *cobra.Command, arg []string){
-		snippets := snippet.List()
+	RunE: func(cmd *cobra.Command, arg []string) error {
+		snippets, err := snippet.List()
+		if err != nil {
+			return err
+		}
 
 		for _, s := range snippets {
 			fmt.Println(s.ID, s.Command)
 		}
-			
-		
-		fmt.Println("List snippets")
+		if len(snippets) == 0 {
+			fmt.Println("No snippets found.")
+		}
+		return nil
 	},
 }
 
-func init(){
+func init() {
 	rootCmd.AddCommand(listCmd)
 }
