@@ -18,6 +18,10 @@ func openDatabase() (*sql.DB, error) {
 		return nil, err
 	}
 
+	// The CLI opens the database for one short operation at a time.
+	// Closing idle connections helps Windows release the database file quickly.
+	db.SetMaxIdleConns(0)
+
 	// CREATE TABLE IF NOT EXISTS is safe to run every time the CLI starts.
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS snippets (
