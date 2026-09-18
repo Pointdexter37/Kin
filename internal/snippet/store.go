@@ -94,6 +94,35 @@ func List() ([]Snippet, error) {
 	return snippets, nil
 }
 
+// Search returns snippets whose commands contain the query text.
+// SQLite's NOCASE makes normal English letters match upper/lower case.
+func Search(query string) ([]Snippet, error) {
+	db, err := openDatabase()
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query(
+		"SELECT id, command FROM snippets WHERE command LIKE ? COLLATE NOCASE ORDER BY id",
+		"%"+query+"%",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var snippets []Snippet
+	for rows.Next() {
+		var item Snippet
+		if err := rows.Scan(&item.ID, &item.Command); err != nil {
+			return nil, err
+		}
+		snippets = append(snippets, item)
+	}
+	return snippets, rows.Err()
+}
+
 // Remove deletes exactly one snippet by its database ID.
 func Remove(id int) error {
 	db, err := openDatabase()

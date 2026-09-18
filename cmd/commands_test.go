@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/Pointdexter37/kin/internal/snippet"
@@ -64,5 +65,23 @@ func TestAddRequiresOneArgument(t *testing.T) {
 	rootCmd.SetArgs([]string{"add"})
 	if err := rootCmd.Execute(); err == nil {
 		t.Fatal("expected add without a command to fail")
+	}
+}
+
+func TestRemoveValidatesID(t *testing.T) {
+	restoreDirectory := useTempCLI(t)
+	defer restoreDirectory()
+
+	expectedMessages := map[string]string{
+		"abc": "snippet ID must be a number",
+		"0":   "snippet ID must be greater than zero",
+		"999": "snippet 999 was not found",
+	}
+	for id, expected := range expectedMessages {
+		rootCmd.SetArgs([]string{"remove", id})
+		err := rootCmd.Execute()
+		if err == nil || !strings.Contains(err.Error(), expected) {
+			t.Fatalf("expected remove %q to fail", id)
+		}
 	}
 }
