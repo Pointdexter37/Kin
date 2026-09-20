@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Pointdexter37/kin/internal/snippet"
 	"github.com/spf13/cobra"
@@ -17,7 +18,11 @@ var listCmd = &cobra.Command{
 		}
 
 		for _, s := range snippets {
-			fmt.Println(s.ID, s.Command)
+			if s.Tags == "" {
+				fmt.Printf("%d %s\n", s.ID, s.Command)
+				continue
+			}
+			fmt.Printf("%d %s [%s]\n", s.ID, s.Command, strings.Join(strings.Split(s.Tags, ","), ", "))
 		}
 		if len(snippets) == 0 {
 			fmt.Println("No snippets found.")

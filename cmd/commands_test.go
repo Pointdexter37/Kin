@@ -30,7 +30,7 @@ func TestSnippetCommands(t *testing.T) {
 	defer restoreDirectory()
 
 	// SetArgs simulates what a user types after the executable name.
-	rootCmd.SetArgs([]string{"add", "git status"})
+	rootCmd.SetArgs([]string{"add", "git status", "--tag", "git", "--tag", "status"})
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestSnippetCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snippets) != 1 || snippets[0].Command != "git status" {
+	if len(snippets) != 1 || snippets[0].Command != "git status" || snippets[0].Tags != "git,status" {
 		t.Fatalf("add/list commands failed: %#v", snippets)
 	}
 

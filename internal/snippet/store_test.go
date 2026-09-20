@@ -30,7 +30,7 @@ func TestSnippetStorage(t *testing.T) {
 	restoreDirectory := useTempDatabase(t)
 	defer restoreDirectory()
 
-	first, err := Add("git status")
+	first, err := Add("git status", "git", "status")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,6 +41,9 @@ func TestSnippetStorage(t *testing.T) {
 
 	if first.ID != 1 || second.ID != 2 {
 		t.Fatalf("unexpected IDs: got %d and %d", first.ID, second.ID)
+	}
+	if first.Tags != "git,status" {
+		t.Fatalf("unexpected tags: %q", first.Tags)
 	}
 
 	snippets, err := List()

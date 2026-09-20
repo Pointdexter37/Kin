@@ -4,15 +4,21 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/Pointdexter37/kin/internal/snippet"
 	"github.com/spf13/cobra"
 )
 
+var executeSnippet bool
+
 var runCmd = &cobra.Command{
 	Use:   "run <id>",
-	Short: "Preview a saved snippet",
+	Short: "Preview or execute a saved snippet",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := strconv.Atoi(args[0])
@@ -28,12 +34,40 @@ var runCmd = &cobra.Command{
 			return err
 		}
 
-		// Preview-only is intentional: no shell or operating-system process runs.
-		fmt.Fprintf(cmd.OutOrStdout(), "Preview (not executed): %s\n", item.Command)
-		return nil
+		if !executeSnippet {
+			fmt.Fprintf(cmd.OutOrStdout(), "Preview (not executed): %s\n", item.Command)
+			return nil
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "Execute this command? [y/N]: %s\n", item.Command)
+		var answer string
+		if _, err := fmt.Fscanln(cmd.InOrStdin(), &answer); err != nil {
+			return fmt.Errorf("reading response: %w", err)
+		}
+		if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
+			fmt.Fprintln(cmd.OutOrStdout(), "Execution cancelled.")
+			return nil
+		}
+
+		return runCommand(item.Command)
 	},
 }
 
 func init() {
+	runCmd.Flags().BoolVarP(&executeSnippet, "execute", "x", false,
+		"execute the snippet after confirmation")
 	rootCmd.AddCommand(runCmd)
+}
+
+func runCommand(command string) error {
+	var shellCommand *exec.Cmd
+	if runtime.GOOS == "windows" {
+		shellCommand = exec.Command("cmd", "/C", command)
+	} else {
+		shellCommand = exec.Command("sh", "-c", command)
+	}
+	shellCommand.Stdout = os.Stdout
+	shellCommand.Stderr = os.Stderr
+	shellCommand.Stdin = os.Stdin
+	return shellCommand.Run()
 }

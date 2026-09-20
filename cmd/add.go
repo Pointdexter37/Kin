@@ -11,9 +11,12 @@ var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a new snippet",
 	Args:  cobra.ExactArgs(1),
-
 	RunE: func(cmd *cobra.Command, args []string) error {
-		newSnippet, err := snippet.Add(args[0])
+		tags, err := cmd.Flags().GetStringSlice("tag")
+		if err != nil {
+			return err
+		}
+		newSnippet, err := snippet.Add(args[0], tags...)
 		if err != nil {
 			return err
 		}
@@ -24,5 +27,6 @@ var addCmd = &cobra.Command{
 }
 
 func init() {
+	addCmd.Flags().StringSliceP("tag", "t", nil, "tags for the snippet")
 	rootCmd.AddCommand(addCmd)
 }

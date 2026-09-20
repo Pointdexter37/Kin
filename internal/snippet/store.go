@@ -2,6 +2,7 @@ package snippet
 
 import (
 	"database/sql"
+	"strings"
 
 	// Importing the driver registers SQLite with database/sql.
 	// The blank identifier means this package is used for its setup code.
@@ -26,7 +27,8 @@ func openDatabase() (*sql.DB, error) {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS snippets (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			command TEXT NOT NULL
+			command TEXT NOT NULL,
+			tags TEXT NOT NULL DEFAULT ''
 		)
 	`)
 	if err != nil {
@@ -34,7 +36,19 @@ func openDatabase() (*sql.DB, error) {
 		return nil, err
 	}
 
+	// Older databases created before tag support will not have the `tags` column.
+	// SQLite allows us to add the column safely when it is missing.
+	_, err = db.Exec(`ALTER TABLE snippets ADD COLUMN tags TEXT NOT NULL DEFAULT ''`)
+	if err != nil && !isColumnExistsError(err) {
+		db.Close()
+		return nil, err
+	}
+
 	return db, nil
+}
+
+func isColumnExistsError(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "duplicate column name") || strings.Contains(err.Error(), "already exists"))
 }
 
 // Init creates the database and table without adding a snippet.
@@ -47,14 +61,16 @@ func Init() error {
 }
 
 // Add stores one command and returns the complete saved snippet.
-func Add(command string) (Snippet, error) {
+// The tags are stored as a single comma-separated string to keep persistence simple.
+func Add(command string, tags ...string) (Snippet, error) {
 	db, err := openDatabase()
 	if err != nil {
 		return Snippet{}, err
 	}
 	defer db.Close()
 
-	result, err := db.Exec("INSERT INTO snippets (command) VALUES (?)", command)
+	joinedTags := strings.Join(tags, ",")
+	result, err := db.Exec("INSERT INTO snippets (command, tags) VALUES (?, ?)", command, joinedTags)
 	if err != nil {
 		return Snippet{}, err
 	}
@@ -63,7 +79,7 @@ func Add(command string) (Snippet, error) {
 	if err != nil {
 		return Snippet{}, err
 	}
-	return Snippet{ID: int(id), Command: command}, nil
+	return Snippet{ID: int(id), Command: command, Tags: joinedTags}, nil
 }
 
 // List reads snippets in the order they were added.
@@ -74,7 +90,7 @@ func List() ([]Snippet, error) {
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT id, command FROM snippets ORDER BY id")
+	rows, err := db.Query("SELECT id, command, tags FROM snippets ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +99,7 @@ func List() ([]Snippet, error) {
 	var snippets []Snippet
 	for rows.Next() {
 		var item Snippet
-		if err := rows.Scan(&item.ID, &item.Command); err != nil {
+		if err := rows.Scan(&item.ID, &item.Command, &item.Tags); err != nil {
 			return nil, err
 		}
 		snippets = append(snippets, item)
@@ -104,12 +120,12 @@ func Get(id int) (Snippet, error) {
 
 	var item Snippet
 	err = db.QueryRow(
-		"SELECT id, command FROM snippets WHERE id = ?", id,
-	).Scan(&item.ID, &item.Command)
+		"SELECT id, command, tags FROM snippets WHERE id = ?", id,
+	).Scan(&item.ID, &item.Command, &item.Tags)
 	return item, err
 }
 
-// Search returns snippets whose commands contain the query text.
+// Search returns snippets whose commands or tags contain the query text.
 // SQLite's NOCASE makes normal English letters match upper/lower case.
 func Search(query string) ([]Snippet, error) {
 	db, err := openDatabase()
@@ -118,9 +134,11 @@ func Search(query string) ([]Snippet, error) {
 	}
 	defer db.Close()
 
+	searchValue := "%" + query + "%"
 	rows, err := db.Query(
-		"SELECT id, command FROM snippets WHERE command LIKE ? COLLATE NOCASE ORDER BY id",
-		"%"+query+"%",
+		"SELECT id, command, tags FROM snippets WHERE command LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE ORDER BY id",
+		searchValue,
+		searchValue,
 	)
 	if err != nil {
 		return nil, err
@@ -130,7 +148,7 @@ func Search(query string) ([]Snippet, error) {
 	var snippets []Snippet
 	for rows.Next() {
 		var item Snippet
-		if err := rows.Scan(&item.ID, &item.Command); err != nil {
+		if err := rows.Scan(&item.ID, &item.Command, &item.Tags); err != nil {
 			return nil, err
 		}
 		snippets = append(snippets, item)
