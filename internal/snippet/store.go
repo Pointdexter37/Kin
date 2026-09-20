@@ -94,6 +94,21 @@ func List() ([]Snippet, error) {
 	return snippets, nil
 }
 
+// Get returns one snippet by its saved ID.
+func Get(id int) (Snippet, error) {
+	db, err := openDatabase()
+	if err != nil {
+		return Snippet{}, err
+	}
+	defer db.Close()
+
+	var item Snippet
+	err = db.QueryRow(
+		"SELECT id, command FROM snippets WHERE id = ?", id,
+	).Scan(&item.ID, &item.Command)
+	return item, err
+}
+
 // Search returns snippets whose commands contain the query text.
 // SQLite's NOCASE makes normal English letters match upper/lower case.
 func Search(query string) ([]Snippet, error) {
