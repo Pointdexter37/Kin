@@ -156,6 +156,34 @@ func Search(query string) ([]Snippet, error) {
 	return snippets, rows.Err()
 }
 
+// Update changes the command and tags for a stored snippet.
+func Update(id int, command string, tags ...string) error {
+	db, err := openDatabase()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	result, err := db.Exec(
+		"UPDATE snippets SET command = ?, tags = ? WHERE id = ?",
+		command,
+		strings.Join(tags, ","),
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // Remove deletes exactly one snippet by its database ID.
 func Remove(id int) error {
 	db, err := openDatabase()
