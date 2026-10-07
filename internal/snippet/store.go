@@ -2,6 +2,7 @@ package snippet
 
 import (
 	"database/sql"
+	"sort"
 	"strings"
 
 	// Importing the driver registers SQLite with database/sql.
@@ -125,8 +126,8 @@ func Get(id int) (Snippet, error) {
 	return item, err
 }
 
-// Search returns snippets whose commands or tags contain the query text.
-// SQLite's NOCASE makes normal English letters match upper/lower case.
+// Search returns snippets ranked by how closely their commands or tags match
+// the query. Every query word must occur in either the command or the tags.
 func Search(query string) ([]Snippet, error) {
 	db, err := openDatabase()
 	if err != nil {
@@ -134,26 +135,77 @@ func Search(query string) ([]Snippet, error) {
 	}
 	defer db.Close()
 
-	searchValue := "%" + query + "%"
-	rows, err := db.Query(
-		"SELECT id, command, tags FROM snippets WHERE command LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE ORDER BY id",
-		searchValue,
-		searchValue,
-	)
+	rows, err := db.Query("SELECT id, command, tags FROM snippets ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var snippets []Snippet
+	terms := strings.Fields(strings.ToLower(query))
+	type rankedSnippet struct {
+		item  Snippet
+		score int
+	}
+	var matches []rankedSnippet
+
 	for rows.Next() {
 		var item Snippet
 		if err := rows.Scan(&item.ID, &item.Command, &item.Tags); err != nil {
 			return nil, err
 		}
-		snippets = append(snippets, item)
+
+		score := searchScore(item, terms)
+		if score > 0 {
+			matches = append(matches, rankedSnippet{item: item, score: score})
+		}
 	}
-	return snippets, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(matches, func(i, j int) bool {
+		return matches[i].score > matches[j].score
+	})
+
+	snippets := make([]Snippet, len(matches))
+	for i, match := range matches {
+		snippets[i] = match.item
+	}
+	return snippets, nil
+}
+
+func searchScore(item Snippet, terms []string) int {
+	if len(terms) == 0 {
+		return 0
+	}
+
+	command := strings.ToLower(item.Command)
+	tags := strings.ToLower(item.Tags)
+	score := 0
+	for _, term := range terms {
+		inCommand := strings.Contains(command, term)
+		inTags := strings.Contains(tags, term)
+		if !inCommand && !inTags {
+			return 0
+		}
+
+		switch {
+		case command == term:
+			score += 1000
+		case strings.HasPrefix(command, term):
+			score += 700
+		case inCommand:
+			score += 500
+		case tags == term:
+			score += 400
+		case strings.HasPrefix(tags, term):
+			score += 300
+		default:
+			score += 200
+		}
+	}
+
+	return score
 }
 
 // Update changes the command and tags for a stored snippet.
